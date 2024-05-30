@@ -2,7 +2,9 @@ package com.example.demo.quiz;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -14,8 +16,7 @@ import com.example.demo.entity.EntQuiz;
 
 @Controller
 public class QuizController {
-
-	//QuizDaoの用意
+	// QuizDaoの用意
 	private final QuizDao quizdao;
 
 	@Autowired
@@ -29,46 +30,54 @@ public class QuizController {
 		return "index";
 	}
 
-	//以下ChatGPT様のコード
 	@RequestMapping("/quiz1")
 	public String quiz1(Model model) {
-	    // データベースからランダムに10問の問題を取得
-	    List<EntQuiz> questions = getRandomQuestions(quizdao.searchDb(), 10);
-	    model.addAttribute("questions", questions);
+		//データベースからランダムに1問の問題を取得
+		List<EntQuiz> questions = getRandomQuestions(quizdao.searchDb(), 1);
+		//取得した問題リストを Model オブジェクトに追加し、questions という名前でビューに渡す
+		model.addAttribute("questions", questions);
 
-	    // 各問題に対する選択肢を生成
-	    for (EntQuiz question : questions) {
-	        List<EntQuiz> choices = generateChoices(question, quizdao.searchDb());
-	        model.addAttribute("choices_" + question.getId(), choices);
-	    }
-
-	    return "quiz/quiz1";
+		//各問題とその選択肢のマップを作成し、choiceMap という名前でビューに渡す
+		Map<Integer, List<EntQuiz>> choiceMap = new HashMap<>();
+		for (EntQuiz question : questions) {
+			List<EntQuiz> choices = generateChoices(question);
+			choiceMap.put(question.getId(),choices);
+		}
+		
+		model.addAttribute("choiceMap", choiceMap);
+		return "quiz/quiz1";
 	}
 
-	//問題に対する選択肢を生成するメソッド
-	private List<EntQuiz> generateChoices(EntQuiz question, List<EntQuiz> allQuestions) {
+	private List<EntQuiz> generateChoices(EntQuiz question) {
 		List<EntQuiz> choices = new ArrayList<>();
 		choices.add(question); // 正解を最初に追加
-		// 他の3つの不正解をランダムに追加
-		List<EntQuiz> wrongChoices = getRandomQuestions(allQuestions, 3);
-		for (EntQuiz wrongChoice : wrongChoices) {
-			if (!wrongChoice.equals(question)) {
-				choices.add(wrongChoice);
+		//選択肢候補29個のリストを用意する。
+		List<EntQuiz> wrongChoices = quizdao.searchDb();
+		wrongChoices.remove(question);
+		
+		for (EntQuiz choice : wrongChoices) {
+			
+			if (choice != question && choices.size() < 4) {
+				choices.add(choice);
+			}if(choice == question){
+				wrongChoices.remove(question);//正解を除外をfor文に入れる
 			}
 		}
-		Collections.shuffle(choices); // 選択肢をシャッフルしてランダム化
-		return choices;
+		// 選択肢をシャッフルしてランダム化
+		Collections.shuffle(choices); 
+		//択肢は、正解と不正解の問題を含むシャッフルされたリストとして返される
+		return choices; 
 	}
-
-	// リストからランダムに指定された数の要素を取得するメソッド
-	private List<EntQuiz> getRandomQuestions(List<EntQuiz> questions, int numQuestions) {
-	    Collections.shuffle(questions); // リストをシャッフルしてランダム化
-	    int endIndex = Math.min(numQuestions, questions.size()); // インデックスの上限をリストのサイズに合わせる
-	    return questions.subList(0, endIndex); // ランダムに選択された問題を返す
+	
+	// getRandomQuestionsメソッド
+	private List<EntQuiz> getRandomQuestions(List<EntQuiz> questions, int numQuestions){
+		//リストをシャッフルしてランダム化
+		Collections.shuffle(questions); 
+		 // インデックスの上限をリストのサイズに合わせる
+		int endIndex = Math.min(numQuestions, questions.size());
+		// ランダムに選択された問題を返す
+		return questions.subList(0, endIndex); 
 	}
-
-
-	//ここまでChatGPT
 
 	@RequestMapping("/right")
 	public String right(Model model) {
@@ -78,5 +87,10 @@ public class QuizController {
 	@RequestMapping("/wrong")
 	public String wrong(Model model) {
 		return "quiz/wrong";
+	}
+
+	@RequestMapping("/finish")
+	public String finish(Model model) {
+		return "quiz/finish";
 	}
 }
